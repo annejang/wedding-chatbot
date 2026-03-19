@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="웨딩상담">
+<meta name="theme-color" content="#c9806a">
+<title>웨딩 상담 챗봇</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --primary: #c9806a;
+    --primary-dark: #a86050;
+    --bg: #fdf0eb;
+    --bubble-bot: #fff3ee;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body {
+    height: 100%;
+    height: -webkit-fill-available;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 헤더 ── */
+  .header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    padding: 14px 18px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(160,80,60,0.25);
+    z-index: 10;
+  }
+  .bot-avatar {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.22);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+  }
+  .header-info h2 { color: white; font-size: 15px; font-weight: 700; }
+  .header-info p  { color: rgba(255,255,255,0.78); font-size: 11px; margin-top: 1px; }
+  .online-badge {
+    margin-left: auto;
+    background: rgba(255,255,255,0.22);
+    border-radius: 12px;
+    padding: 4px 10px;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: white; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .dot { width: 7px; height: 7px; background: #7de8a0; border-radius: 50%;
+    animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── 진행바 ── */
+  .progress-wrap {
+    background: white;
+    padding: 8px 18px 6px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #f0e0d8;
+  }
+  .progress-bar { background: #ead8d0; border-radius: 10px; height: 4px; overflow: hidden; }
+  .progress-fill {
+    background: linear-gradient(to right, var(--primary), #e8a090);
+    height: 100%; border-radius: 10px;
+    transition: width 0.5s ease; width: 0%;
+  }
+  .progress-row {
+    display: flex; justify-content: space-between;
+    margin-top: 4px;
+  }
+  .progress-step { font-size: 10px; color: #b09080; }
+  .progress-pct  { font-size: 10px; color: var(--primary); font-weight: 700; }
+
+  /* ── 메시지 영역 ── */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { display: none; }
+
+  /* ── 말풍선 ── */
+  .bubble-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+    max-width: 82%;
+    animation: fadeUp .28s ease;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .bubble-row.bot  { align-self: flex-start; }
+  .bubble-row.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .mini-ava {
+    width: 30px; height: 30px;
+    background: #f0ddd8; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0; margin-bottom: 2px;
+  }
+
+  .bubble {
+    padding: 11px 14px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.65;
+    word-break: break-word;
+  }
+  .bubble.bot  { background: var(--bubble-bot); color: #333; border-bottom-left-radius: 4px; }
+  .bubble.user { background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+                 color: white; border-bottom-right-radius: 4px; }
+
+  /* 타이핑 */
+  .typing-row { display: flex; align-items: flex-end; gap: 7px; }
+  .typing-bub {
+    background: var(--bubble-bot);
+    padding: 13px 16px;
+    border-radius: 18px; border-bottom-left-radius: 4px;
+    display: flex; gap: 4px; align-items: center;
+  }
+  .tdot {
+    width: 7px; height: 7px; background: var(--primary); border-radius: 50%;
+    animation: tdot 1.2s infinite;
+  }
+  .tdot:nth-child(2){animation-delay:.2s}
+  .tdot:nth-child(3){animation-delay:.4s}
+  @keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+
+  /* ── 입력 영역 ── */
+  .input-area {
+    background: white;
+    padding: 10px 14px;
+    padding-bottom: max(10px, var(--safe-bottom));
+    border-top: 1px solid #f0e0d8;
+    flex-shrink: 0;
+  }
+
+  /* 버튼 그리드 */
+  .btn-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .choice-btn {
+    background: white;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    border-radius: 22px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all .18s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px; /* 모바일 터치 크기 */
+  }
+  .choice-btn:active {
+    background: var(--primary); color: white;
+    transform: scale(0.96);
+  }
+
+  /* 텍스트 입력 */
+  .text-row { display: flex; gap: 8px; align-items: center; }
+  .text-inp {
+    flex: 1;
+    border: 2px solid #e8cfc8;
+    border-radius: 24px;
+    padding: 11px 16px;
+    font-size: 15px; /* iOS 줌 방지: 16px 이상 */
+    outline: none;
+    font-family: inherit;
+    transition: border-color .2s;
+    background: #fafafa;
+    min-height: 44px;
+  }
+  .text-inp:focus { border-color: var(--primary); background: white; }
+  .send-btn {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border: none; border-radius: 50%;
+    color: white; font-size: 17px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .18s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .send-btn:active { transform: scale(0.9); }
+
+  /* ── 완료 카드 ── */
+  .done-card {
+    background: linear-gradient(135deg, #fff3ee, #f0f8f4);
+    border: 1.5px solid #d8c0b8;
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 6px;
+    animation: fadeUp .4s ease;
+  }
+  .done-card h3 { color: var(--primary-dark); font-size: 13px; margin-bottom: 10px; }
+  .done-row { display: flex; gap: 8px; margin-bottom: 5px; }
+  .done-label { color: #aaa; font-size: 12px; min-width: 62px; }
+  .done-val   { color: #333; font-size: 12px; font-weight: 500; }
+
+  .restart-btn {
+    width: 100%; margin-top: 10px;
+    background: white;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    border-radius: 24px;
+    padding: 12px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    transition: all .2s;
+    min-height: 44px;
+  }
+  .restart-btn:active { background: var(--primary); color: white; }
+
+  /* QR 안내 배너 */
+  .qr-banner {
+    background: #f0f8f4;
+    border: 1px solid #b8dcc8;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #3a7a5a;
+    display: flex; align-items: center; gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div class="bot-avatar">💍</div>
+  <div class="header-info">
+    <h2>웨딩 상담</h2>
+    <p>Anne's Wedding Planner</p>
+  </div>
+  <div class="online-badge"><div class="dot"></div>상담중</div>
+</div>
+
+<!-- 진행바 -->
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+  <div class="progress-row">
+    <span class="progress-step" id="pStep">시작 전</span>
+    <span class="progress-pct" id="pPct">0%</span>
+  </div>
+</div>
+
+<!-- 메시지 -->
+<div class="messages" id="msgs"></div>
+
+<!-- 입력 영역 -->
+<div class="input-area" id="inputArea"></div>
+
+<script>
+const A = {};
+const steps = [
+  {
+    msg: '안녕하세요! 💍\n저는 웨딩 상담 챗봇이에요.\n잠깐이면 돼요 😊\n\n먼저 성함을 알려주세요!',
+    type: 'text', ph: '이름을 입력해 주세요', key: '이름', pct: 10, ps: '1/8'
+  },
+  {
+    msg: a => `${a['이름']}님, 반가워요! 🌸\n예식은 언제쯤 생각하시나요?`,
+    type: 'choice',
+    choices: ['3개월 이내','6개월 이내','1년 이내','1년 이상','아직 미정'],
+    key: '예식시기', pct: 25, ps: '2/8 날짜'
+  },
+  {
+    msg: '예식 지역은요?',
+    type: 'choice',
+    choices: ['서울','경기 / 인천','부산 / 대구','기타 지방','아직 미정'],
+    key: '지역', pct: 37, ps: '3/8 지역'
+  },
+  {
+    msg: '예상 하객 인원은요?',
+    type: 'choice',
+    choices: ['50명 이하','50~100명','100~200명','200~300명','300명 이상'],
+    key: '인원', pct: 50, ps: '4/8 인원'
+  },
+  {
+    msg: '전체 웨딩 예산은\n대략 어느 정도예요?',
+    type: 'choice',
+    choices: ['1,000만원 이하','1,000~2,000만원','2,000~3,000만원','3,000만원 이상','상담 후 결정'],
+    key: '예산', pct: 62, ps: '5/8 예산'
+  },
+  {
+    msg: '어떤 느낌의 웨딩을\n꿈꾸세요? ✨',
+    type: 'choice',
+    choices: ['✨ 럭셔리 / 고급스러운','🌿 내추럴 / 가든','🤍 미니멀 / 모던','🌸 로맨틱 / 플로럴','📸 스몰 웨딩','🎉 파티 느낌'],
+    key: '스타일', pct: 75, ps: '6/8 스타일'
+  },
+  {
+    msg: '도움이 필요한 부분이 있나요?',
+    type: 'choice',
+    choices: ['🏛 예식장 선정','💐 꽃 / 장식','📸 사진 / 영상','👗 드레스','💄 헤어 / 메이크업','전체 패키지'],
+    key: '서비스', pct: 85, ps: '7/8 서비스'
+  },
+  {
+    msg: '거의 다 왔어요! 😊\n연락처 또는 카카오 ID를\n알려주세요!',
+    type: 'text', ph: '전화번호 또는 카카오 ID', key: '연락처', pct: 93, ps: '8/8 연락처'
+  },
+  {
+    msg: '상담 원하시는 시간대가 있으신가요?',
+    type: 'choice',
+    choices: ['평일 오전','평일 오후','주말 오전','주말 오후','플래너님께 맡길게요'],
+    key: '상담시간', pct: 100, ps: '완료!'
+  }
+];
+
+let cur = 0;
+const msgsEl  = document.getElementById('msgs');
+const inputEl = document.getElementById('inputArea');
+const pFill   = document.getElementById('pFill');
+const pStep   = document.getElementById('pStep');
+const pPct    = document.getElementById('pPct');
+
+function scroll() { setTimeout(()=>{ msgsEl.scrollTop = msgsEl.scrollHeight; }, 80); }
+
+function setProgress(pct, label) {
+  pFill.style.width = pct + '%';
+  pStep.textContent = label;
+  pPct.textContent  = pct + '%';
+}
+
+function addBot(text, delay=0) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const tid = 'T' + Date.now();
+      const tw = document.createElement('div');
+      tw.className = 'typing-row'; tw.id = tid;
+      tw.innerHTML = `<div class="mini-ava">💍</div>
+        <div class="typing-bub"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;
+      msgsEl.appendChild(tw); scroll();
+      setTimeout(() => {
+        document.getElementById(tid)?.remove();
+        const row = document.createElement('div');
+        row.className = 'bubble-row bot';
+        row.innerHTML = `<div class="mini-ava">💍</div>
+          <div class="bubble bot">${text.replace(/\n/g,'<br>')}</div>`;
+        msgsEl.appendChild(row); scroll();
+        resolve();
+      }, Math.min(600 + text.length * 10, 1400));
+    }, delay);
+  });
+}
+
+function addUser(text) {
+  const row = document.createElement('div');
+  row.className = 'bubble-row user';
+  row.innerHTML = `<div class="bubble user">${text}</div>`;
+  msgsEl.appendChild(row); scroll();
+}
+
+function clearInput() { inputEl.innerHTML = ''; }
+
+async function runStep(i) {
+  if (i >= steps.length) { showDone(); return; }
+  const s = steps[i];
+  clearInput();
+  const msg = typeof s.msg === 'function' ? s.msg(A) : s.msg;
+  await addBot(msg, 300);
+  setProgress(s.pct, s.ps);
+  s.type === 'text' ? showText(s) : showChoices(s);
+}
+
+function showText(s) {
+  inputEl.innerHTML = `
+    <div class="text-row">
+      <input class="text-inp" id="ti" placeholder="${s.ph}" maxlength="50" autocomplete="off" />
+      <button class="send-btn" onclick="submitText('${s.key}')">➤</button>
+    </div>`;
+  const ti = document.getElementById('ti');
+  ti.focus();
+  ti.addEventListener('keydown', e => { if(e.key==='Enter') submitText(s.key); });
+}
+
+function submitText(key) {
+  const v = document.getElementById('ti').value.trim();
+  if (!v) return;
+  A[key] = v; addUser(v); clearInput(); cur++;
+  setTimeout(()=>runStep(cur), 350);
+}
+
+function showChoices(s) {
+  const g = document.createElement('div');
+  g.className = 'btn-grid';
+  s.choices.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'choice-btn'; b.textContent = c;
+    b.onclick = () => {
+      A[s.key] = c; addUser(c); clearInput(); cur++;
+      setTimeout(()=>runStep(cur), 350);
+    };
+    g.appendChild(b);
+  });
+  inputEl.appendChild(g);
+}
+
+async function showDone() {
+  clearInput();
+  await addBot(`${A['이름']}님, 감사해요 💍\n입력해주신 내용 확인 후\n24시간 이내로 연락드릴게요!\n\n설레는 웨딩 준비,\n함께 만들어가요 🌸`, 300);
+  setTimeout(() => {
+    const card = document.createElement('div');
+    card.className = 'done-card';
+    card.innerHTML = `
+      <h3>📋 상담 신청 내용</h3>
+      ${Object.entries(A).map(([k,v])=>`
+        <div class="done-row">
+          <span class="done-label">${k}</span>
+          <span class="done-val">${v}</span>
+        </div>`).join('')}`;
+    msgsEl.appendChild(card);
+    const btn = document.createElement('button');
+    btn.className = 'restart-btn'; btn.textContent = '🔄 처음부터 다시 상담하기';
+    btn.onclick = ()=>location.reload();
+    msgsEl.appendChild(btn);
+    scroll();
+  }, 1800);
+}
+
+window.onload = ()=>runStep(0);
+</script>
+</body>
+</html>
