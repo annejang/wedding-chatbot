@@ -418,8 +418,20 @@ function showChoices(s) {
   inputEl.appendChild(g);
 }
 
+async function sendToEmail() {
+  const formData = new FormData();
+  formData.append('access_key', 'cf0c6180-368c-48de-9514-9eb72b723621');
+  formData.append('subject', `[웨딩상담] ${A['이름']}님 상담 신청`);
+  formData.append('from_name', '웨딩 상담 챗봇');
+  Object.entries(A).forEach(([k,v]) => formData.append(k, v));
+  try {
+    await fetch('https://api.web3forms.com/submit', { method: 'POST', body: formData });
+  } catch(e) { console.log('전송 오류', e); }
+}
+
 async function showDone() {
   clearInput();
+  sendToEmail(); // 자동 이메일 전송
   await addBot(`${A['이름']}님, 감사해요 💍\n입력해주신 내용 확인 후\n24시간 이내로 연락드릴게요!\n\n설레는 웨딩 준비,\n함께 만들어가요 🌸`, 300);
   setTimeout(() => {
     const card = document.createElement('div');
@@ -432,6 +444,38 @@ async function showDone() {
           <span class="done-val">${v}</span>
         </div>`).join('')}`;
     msgsEl.appendChild(card);
+
+    // 결과 텍스트 생성
+    const resultText = `💍 웨딩 상담 신청\n` +
+      Object.entries(A).map(([k,v])=>`${k}: ${v}`).join('\n');
+
+    // 복사 버튼
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'restart-btn';
+    copyBtn.style.cssText = 'background:linear-gradient(135deg,#c9806a,#a86050);color:white;border:none;margin-bottom:8px;';
+    copyBtn.textContent = '📋 결과 복사하기 (카카오톡 전송용)';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(resultText).then(() => {
+        copyBtn.textContent = '✅ 복사됐어요! 카카오톡에 붙여넣기 하세요';
+        copyBtn.style.background = '#6aaa88';
+        setTimeout(()=>{ copyBtn.textContent='📋 결과 복사하기 (카카오톡 전송용)'; copyBtn.style.background='linear-gradient(135deg,#c9806a,#a86050)'; }, 3000);
+      });
+    };
+    msgsEl.appendChild(copyBtn);
+
+    // 이메일 버튼
+    const emailBtn = document.createElement('button');
+    emailBtn.className = 'restart-btn';
+    emailBtn.style.cssText = 'background:white;color:#c9806a;border:2px solid #c9806a;margin-bottom:8px;';
+    emailBtn.textContent = '📧 플래너에게 이메일 보내기';
+    emailBtn.onclick = () => {
+      const subject = encodeURIComponent(`[웨딩상담] ${A['이름']}님 상담 신청`);
+      const body = encodeURIComponent(resultText);
+      window.location.href = `mailto:annejang12@gmail.com?subject=${subject}&body=${body}`;
+    };
+    msgsEl.appendChild(emailBtn);
+
+    // 다시하기 버튼
     const btn = document.createElement('button');
     btn.className = 'restart-btn'; btn.textContent = '🔄 처음부터 다시 상담하기';
     btn.onclick = ()=>location.reload();
